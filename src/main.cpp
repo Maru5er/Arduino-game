@@ -22,6 +22,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Shape.hpp>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -72,12 +73,40 @@ const int DINO_Y_HIT = 15;
 int dino_x = 0; 
 int dino_y = SCREEN_HEIGHT - DINO_HEIGHT;
 
+const int NUM_CACTUS = 2;
+
+class Cactus : public Rectangle {
+  protected:
+    bool _collide = false;
+
+  public:
+    Cactus(int x, int y, int width, int height) : Rectangle(x, y, width, height){}
+
+    bool is_colliding() {
+      return _collide;
+    }
+
+    bool setHasPassedBird(bool collide) {
+      _collide = collide;
+    }
+};
+
+Cactus cactuses[NUM_CACTUS] = {
+	Cactus(SPAWN_X, CACTUS_SPAWN_Y, cactus_width, cactus_size),
+	Cactus(SPAWN_X, CACTUS_SPAWN_Y, cactus_width, cactus_size),
+
+};
+
+void initEntities() {
+	
+}
+
+
 bool is_colliding(int a_x, int a_y, int a_width, int a_height, int b_x, int b_y, int b_width, int b_height) {
 	bool OverX = (a_x < b_x + b_width) && (a_x + a_width > b_x);
 	bool OverY = (a_y < b_y + b_height) && (a_y + a_height > b_y);
 	return OverX && OverY;
 }
-
 
 void setup() {
   Serial.begin(9600);
@@ -97,7 +126,7 @@ void setup() {
   display.clearDisplay();
 }
 
-void loop() {
+void gameLoop() {
 	int dino_control = analogRead(A0);
 	dino_control = map(dino_control, 0, 1023, SCREEN_HEIGHT - DINO_HEIGHT, 6);
 	dino_y = dino_control;
@@ -138,7 +167,9 @@ void loop() {
 	if (is_colliding(dino_x, dino_y, DINO_WIDTH, DINO_HEIGHT, cactus_x, cactus_y, cactus_width, cactus_size)) {
 		score = 0;
 	}
-	
+}
+
+void loop() {
 	
 }
 
