@@ -45,33 +45,39 @@ const unsigned char* epd_bitmap_allArray[1] = {
 	dino
 };
 
-
+const int BUTTON = 4;
 
 
 const int SCORE_HEIGHT = 5;
 const int SPAWN_X = 118;
 const int CACTUS_SPAWN_Y = 52;
 const int PTERODACTYL_SPAWN_Y = SCORE_HEIGHT + 1;
+
+// cactus constants
 int cactus_x = SPAWN_X;
 int cactus_y = CACTUS_SPAWN_Y;
-int cactus_speed = 2;  // lower speed = faster
-int pterodactyl_speed = 1;
+int cactus_speed = 3;
 int cactus_size = 12; // size of sprite
 int cactus_width = 5;
 
+// pterodactyl constants
 int pterodactyl_x = SPAWN_X;
 int pterodactyl_y = PTERODACTYL_SPAWN_Y;
 int pterodactyl_size = 5;
 int pterodactyl_width = 12;
+int pterodactyl_speed = 1;
 
 int score = 0;
 
+// Dinosaurs constants
 const int DINO_WIDTH = 20;
 const int DINO_HEIGHT = 20;
 const int DINO_X_HIT = 15;
 const int DINO_Y_HIT = 15;
 int dino_x = 0; 
 int dino_y = SCREEN_HEIGHT - DINO_HEIGHT;
+int dino_speed = 4;
+bool airborne = false;
 
 const int NUM_CACTUS = 2;
 
@@ -97,16 +103,94 @@ Cactus cactuses[NUM_CACTUS] = {
 
 };
 
-void initEntities() {
-	
-}
-
-
 bool is_colliding(int a_x, int a_y, int a_width, int a_height, int b_x, int b_y, int b_width, int b_height) {
 	bool OverX = (a_x < b_x + b_width) && (a_x + a_width > b_x);
 	bool OverY = (a_y < b_y + b_height) && (a_y + a_height > b_y);
 	return OverX && OverY;
 }
+
+
+void initEntities() {
+	// set dinosaur spawn point
+	dino_x = 0;
+	dino_y = SCREEN_HEIGHT - DINO_HEIGHT;
+
+	// initialize cactuses
+	// right-most spawn point for cactus
+	const int min_cactus_spawn_x = (SCREEN_WIDTH / 2) + 10;
+	int prev_x = min_cactus_spawn_x;
+	for (int i = 0; i < NUM_CACTUS; i++) {
+		int space = random(50, 90);
+		cactus_size = random(8, 20);
+		cactuses[i].setX(space + prev_x);
+		cactuses[i].setY(SCREEN_HEIGHT - cactus_size);
+		cactuses[i].setDimensions(cactus_width, cactus_size);
+		prev_x = cactuses[i].getX() + cactus_width;
+	}
+}
+
+bool button_pressed(int pin) {
+	if (digitalRead(pin) > 0) {
+		Serial.println("Button pressed");
+		return true;
+	}
+	return false;
+}
+
+void gamePlayLoop() {
+	// move x of cactuses
+	for (int i = 0; i < NUM_CACTUS; i++) {
+		// check if cactus out of bound
+		// generate new one with random interval
+		randomSeed(analogRead(A0));
+		int interval = random(50, 90);
+		int new_height = random(8,20);
+		int new_x = cactuses[i].getX() - cactus_speed;
+		if (new_x + cactus_width + interval < 0) {
+			// spawn new cactus from the right of the screen
+			// change cactus height
+			new_x = SCREEN_WIDTH - cactus_speed;
+			cactuses[i].setY(SCREEN_HEIGHT - new_height);
+			cactuses[i].setDimensions(cactus_width, new_height);
+
+			// increment score
+			score++;
+			
+		}
+		cactuses[i].setX(new_x);
+		cactuses[i].draw(display);
+
+		// check for collision
+		if (is_colliding(dino_x, dino_y, DINO_X_HIT, DINO_Y_HIT,
+			cactuses[i].getX(), cactuses[i].getY(), 
+			cactuses[i].getWidth(), cactuses[i].getHeight())) {
+				score = 0;
+			}
+	}
+
+	// handle jump
+	if (button_pressed(BUTTON)) {
+		airborne = true;
+	}
+	if (airborne) {
+		dino_y -= dino_speed;
+		// max jump height
+		if (dino_y < SCREEN_HEIGHT - 20 - DINO_HEIGHT) {
+			dino_speed *= -1;
+		}
+		if (dino_y >= SCREEN_HEIGHT - 20) {
+			dino_speed *= -1;
+			airborne = false;
+		}
+	}
+
+	// draw dino
+	display.drawBitmap(dino_x, dino_y, epd_bitmap_allArray[0], DINO_WIDTH, DINO_HEIGHT, 1);
+	
+}
+
+
+
 
 void setup() {
   Serial.begin(9600);
@@ -124,37 +208,33 @@ void setup() {
   display.display();
   delay(2000);
   display.clearDisplay();
+  // initialize entities
+  initEntities();
 }
 
 void gameLoop() {
+}
+
+void loop() {
+	// refresh display every loop
+	display.clearDisplay();
+
 	int dino_control = analogRead(A0);
 	dino_control = map(dino_control, 0, 1023, SCREEN_HEIGHT - DINO_HEIGHT, 6);
-	dino_y = dino_control;
+	//dino_y = dino_control;
 	// draw score
 	display.setCursor(60, 0);
 	display.print("score: ");
 	display.print(score);
 	// draw pterodactyl
 	display.fillRect(pterodactyl_x, pterodactyl_y, pterodactyl_width, pterodactyl_size, 1);
-	// draw cactus
-	display.fillRect(cactus_x, cactus_y, cactus_width, cactus_size, 1);
-	// draw dino
-	display.drawBitmap(dino_x, dino_y, epd_bitmap_allArray[0], DINO_WIDTH, DINO_HEIGHT, 1);
+	
 
+	// gameplay loop
+	gamePlayLoop();
 	display.display();
-	display.clearDisplay();
 	cactus_x -= 3;
 	pterodactyl_x -= 2;
-
-	// handle cactus generation
-	if (cactus_x < -10) {
-		cactus_x = SPAWN_X;
-		cactus_y = CACTUS_SPAWN_Y;  // reset y-coordinate
-		// varrying cactus height
-		cactus_size = random(8,20); // max height of cactus = 20
-		cactus_y = SCREEN_HEIGHT - cactus_size;
-		score++;
-	}
 
 	// handle pterodactyl generation
 	if (pterodactyl_x < -pterodactyl_width) {
@@ -162,14 +242,6 @@ void gameLoop() {
 		pterodactyl_y = random(SCORE_HEIGHT + 1,15); 
 		score++;
 	}
-
-	// Collision
-	if (is_colliding(dino_x, dino_y, DINO_WIDTH, DINO_HEIGHT, cactus_x, cactus_y, cactus_width, cactus_size)) {
-		score = 0;
-	}
-}
-
-void loop() {
 	
 }
 
