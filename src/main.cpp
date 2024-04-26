@@ -39,15 +39,23 @@ const unsigned char dino [] PROGMEM = {
 	0x01, 0x08, 0x00, 0x01, 0x08, 0x00, 0x01, 0x08, 0x00, 0x01, 0x8c, 0x00
 };
 
+const unsigned char dino_fly [] PROGMEM = {
+	0x00, 0x01, 0x80, 0x00, 0x03, 0xc0, 0x00, 0x07, 0xc0, 0x80, 0x07, 0xf0, 0x80, 0x07, 0x70, 0x80, 
+	0x0f, 0xf0, 0x80, 0x1f, 0xf0, 0xc0, 0x3f, 0xc0, 0xc0, 0x7e, 0xf0, 0xe1, 0xff, 0x00, 0xff, 0xff, 
+	0x00, 0xff, 0xff, 0x00, 0x3f, 0xff, 0x00, 0x3f, 0xfe, 0x00, 0x1f, 0xfc, 0x00, 0x0f, 0xe0, 0x00, 
+	0x7c, 0x7f, 0x00, 0x78, 0x7f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 const unsigned char ptero_sprite [] PROGMEM = {
 	0x04, 0x0f, 0xe0, 0x0e, 0x1e, 0x00, 0x1e, 0x1e, 0x00, 0x37, 0xff, 0xf0, 0xff, 0xff, 0x80, 0x3f, 
 	0xff, 0xe0, 0x00, 0xfe, 0x00
 };
 
 // Array of all bitmaps for convenience. (Total bytes used to store images in PROGMEM = 1040)
-const int epd_bitmap_allArray_LEN = 2;
-const unsigned char* epd_bitmap_allArray[2] = {
+const int epd_bitmap_allArray_LEN = 3;
+const unsigned char* epd_bitmap_allArray[3] = {
 	dino,
+	dino_fly,
 	ptero_sprite
 };
 
@@ -106,7 +114,7 @@ class Ptero : public Rectangle {
 	  Ptero(int x, int y, int width, int height) : Rectangle(x, y, width, height){}
 
 	  void drawPtero(Adafruit_SSD1306& display, int x, int y) {
-		display.drawBitmap(x, y, epd_bitmap_allArray[1], pterodactyl_width, pterodactyl_height, 1);
+		display.drawBitmap(x, y, epd_bitmap_allArray[2], pterodactyl_width, pterodactyl_height, 1);
 	  }
 };
 
@@ -222,11 +230,13 @@ void gamePlayLoop() {
 		dino_jump_velocity += gravity + 3;
 	}
 	
-
 	// draw dino
-	display.drawBitmap(dino_x, dino_y, epd_bitmap_allArray[0], DINO_WIDTH, DINO_HEIGHT, 1);
+	if (dino_y < DINO_GROUND) {
+		display.drawBitmap(dino_x, dino_y, epd_bitmap_allArray[1], DINO_WIDTH, DINO_HEIGHT, 1);
+	} else {
+		display.drawBitmap(dino_x, dino_y, epd_bitmap_allArray[0], DINO_WIDTH, DINO_HEIGHT, 1);
+	}
 
-	
 	// draw ptero
 	ptero.drawPtero(display, ptero.getX(), ptero.getY());
 
@@ -275,11 +285,6 @@ void loop() {
 	// gameplay loop
 	gamePlayLoop();
 	display.display();
-	cactus_x -= 3;
-	pterodactyl_x -= 2;
-
-	
-	
 }
 
 
