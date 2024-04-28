@@ -98,7 +98,22 @@ int dino_speed = 6;
 const int DINO_GROUND = SCREEN_HEIGHT - DINO_HEIGHT;
 bool airborne = false;
 
+enum GameState {
+	NEW_GAME,
+	PLAYING,
+	GAME_OVER,
+};
 
+const char START_MENU_STR[] = "Press button to play";
+
+GameState _gameState = NEW_GAME;
+
+int _gameOverTimeStamp = 0;
+uint16_t blinky = 1;
+unsigned long prev_millis = 0;
+
+// helper function declaration
+bool button_pressed(int button);
 
 class Cactus : public Rectangle {
   protected:
@@ -152,10 +167,44 @@ void initEntities() {
 	}
 
 	// initialize pterodactyl
-	ptero.setX(0);
+	ptero.setX(SCREEN_WIDTH);
 	ptero.setY(PTERODACTYL_SPAWN_Y);
 	ptero.setDimensions(pterodactyl_width, pterodactyl_height);
 
+}
+
+void nonGameLoop() {
+	int16_t x1, y1, x2, y2;
+	int16_t w, h;
+
+	if (_gameState == NEW_GAME) {
+		display.getTextBounds(START_MENU_STR, 0, 0, &x1, &y1, &w, &h);
+		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2);
+		if (millis() - prev_millis > 500) {
+			prev_millis = millis();
+			if (blinky == 1) blinky = 0;
+			else blinky = 1;
+		}
+		display.setTextColor(blinky);
+		display.print(START_MENU_STR);
+		display.setTextColor(1);
+
+		// input delay to prevent accidentally pressing the button
+		if (button_pressed(BUTTON) &&  millis() - _gameOverTimeStamp > 500) {
+			_gameState = PLAYING;
+		}
+	} else if (_gameState == GAME_OVER) {
+		display.getTextBounds("GAME OVER", 0, 0, &x1, &y1, &w, &h);
+		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2 - 10);
+		display.print("GAME OVER");
+		display.getTextBounds("Press to continue", 0, 0, &x1, &y1, &w, &h);
+		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2 + h - 10);
+		display.print("Press to continue");
+
+		if (button_pressed(BUTTON) && millis() - _gameOverTimeStamp > 500) {
+			_gameState = PLAYING;
+		}
+	}
 }
 
 bool button_pressed(int pin) {
@@ -195,6 +244,9 @@ void gamePlayLoop() {
 			cactuses[i].getWidth(), cactuses[i].getHeight())) {
 				score = 0;
 				tone(7, 500, 200);
+				_gameState = GAME_OVER;
+				_gameOverTimeStamp = millis();
+				nonGameLoop();
 			}
 	}
 
@@ -208,6 +260,9 @@ void gamePlayLoop() {
 					ptero.getX(), ptero.getY(), pterodactyl_width, pterodactyl_height)) {
 						score = 0;
 						tone(7, 500, 200);
+						_gameState = GAME_OVER;
+						_gameOverTimeStamp = millis();
+						nonGameLoop();
 					}
 
 	// handle jump
@@ -244,8 +299,6 @@ void gamePlayLoop() {
 }
 
 
-
-
 void setup() {
   Serial.begin(9600);
   display.setCursor(100, 0);
@@ -262,8 +315,6 @@ void setup() {
   display.display();
   delay(200);
   display.clearDisplay();
-  // initialize entities
-  initEntities();
 }
 
 void gameLoop() {
@@ -271,19 +322,26 @@ void gameLoop() {
 
 void loop() {
 	// refresh display every loop
-	display.clearDisplay();
-
-	int dino_control = analogRead(A0);
-	dino_control = map(dino_control, 0, 1023, SCREEN_HEIGHT - DINO_HEIGHT, 6);
-	//dino_y = dino_control;
 	// draw score
-	display.setCursor(60, 0);
-	display.print("score: ");
-	display.print(score);
+	
+	
+	if (_gameState == NEW_GAME || _gameState == GAME_OVER) {
+		// non gameplay loop
+		initEntities();
+		nonGameLoop();
+	} else {
+		display.clearDisplay();
+		display.setCursor(60, 0);
+		display.print("score: ");
+		display.print(score);
+		// gameplay loop
+		gamePlayLoop();
+	}
+	//dino_y = dino_control;
+	
 	
 
-	// gameplay loop
-	gamePlayLoop();
+
 	display.display();
 }
 
