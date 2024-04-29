@@ -78,7 +78,8 @@ const unsigned char* epd_bitmap_allArray[5] = {
 
 const int BUTTON = 4;
 const int LED = 8;
-
+const int MINAMP = 500;
+const int BUZZER = 9;
 
 const int SCORE_HEIGHT = 5;
 const int SPAWN_X = 118;
@@ -101,8 +102,6 @@ int pterodactyl_height = 7;
 int pterodactyl_width = 20;
 int pterodactyl_speed = 1;
 
-
-
 // Dinosaurs constants
 const int DINO_WIDTH = 20;
 const int DINO_HEIGHT = 20;
@@ -114,13 +113,13 @@ int dino_x = 0;
 int dino_y = SCREEN_HEIGHT - DINO_HEIGHT;
 int dino_speed = 6;
 const int DINO_GROUND = SCREEN_HEIGHT - DINO_HEIGHT;
-bool airborne = false;
 
 // States
 enum GameState {
 	NEW_GAME,
 	PLAYING,
 	GAME_OVER,
+	SCREAM,
 };
 
 const char START_MENU_STR[] = "Press button to play";
@@ -137,6 +136,7 @@ int hi_score = 0;
 
 // helper function declaration
 bool button_pressed(int button);
+int listen();
 
 class Cactus : public Rectangle {
   protected:
@@ -221,10 +221,16 @@ void nonGameLoop() {
 		display.print(START_MENU_STR);
 		display.setTextColor(1);
 
-		// input delay to prevent accidentally pressing the button
-		if (button_pressed(BUTTON) &&  millis() - _gameOverTimeStamp > 600) {
+		
+		if (button_pressed(BUTTON)) {
 			_gameState = PLAYING;
 		}
+		
+		// screaming mode
+		if (listen() > MINAMP) {
+			_gameState = SCREAM;
+		}
+
 	} else if (_gameState == GAME_OVER) {
 		display.getTextBounds("GAME OVER", 0, 0, &x1, &y1, &w, &h);
 		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2 - 10);
@@ -233,8 +239,12 @@ void nonGameLoop() {
 		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2 + h - 10);
 		display.print("Press to continue");
 
-		if (button_pressed(BUTTON) && millis() - _gameOverTimeStamp > 600) {
+		if (button_pressed(BUTTON)) {
+			initEntities();
 			_gameState = PLAYING;
+		} else if (listen() > MINAMP) {
+			initEntities();
+			_gameState = SCREAM;
 		}
 	}
 }
@@ -270,13 +280,18 @@ void gamePlayLoop() {
 		cactuses[i].setX(new_x);
 		cactuses[i].draw(display);
 
-		// check for collision
+		// dino collision
 		if (is_colliding(dino_x, dino_y, DINO_X_HIT, DINO_Y_HIT,
 			cactuses[i].getX(), cactuses[i].getY(), 
 			cactuses[i].getWidth(), cactuses[i].getHeight())) {
 				hi_score = max(score, hi_score);
 				score = 0;
 				tone(7, 500, 200);
+				// buzz
+				digitalWrite(BUZZER, HIGH);
+				delay(500);
+				digitalWrite(BUZZER, LOW);
+
 				_gameState = GAME_OVER;
 				_gameOverTimeStamp = millis();
 				nonGameLoop();
@@ -289,20 +304,28 @@ void gamePlayLoop() {
 		ptero.setX(SCREEN_WIDTH);
 		score++;
 	}
+
+	// pterodactyl collision
 	if (is_colliding(dino_x, dino_y, DINO_X_HIT, DINO_Y_HIT,
 					ptero.getX(), ptero.getY(), pterodactyl_width, pterodactyl_height)) {
 						hi_score = max(score, hi_score);
 						score = 0;
 						tone(7, 500, 200);
+						// buzz and delay
+						digitalWrite(BUZZER, HIGH);
+						delay(500);
+						digitalWrite(BUZZER, LOW);
 						_gameState = GAME_OVER;
 						_gameOverTimeStamp = millis();
 						nonGameLoop();
 					}
 
 	// handle jump
-	// airborne only true when button is held
+	// change gravity based on whether jump is activated
+	// for a more controllable and parabolic jump feel
 	int gravity = 2;
-	if (button_pressed(BUTTON) && dino_y == DINO_GROUND) {
+	if ((button_pressed(BUTTON) && dino_y == DINO_GROUND && _gameState == PLAYING) || 
+			(_gameState == SCREAM && listen() > MINAMP && dino_y == DINO_GROUND)) {
 		// apply jump force
 		dino_jump_velocity = INITIAL_V;
 		tone(7, 200, 100);
@@ -313,7 +336,7 @@ void gamePlayLoop() {
 	}
 
 	dino_y = min(dino_y + dino_jump_velocity, DINO_GROUND);
-	if (button_pressed(BUTTON)) {
+	if ((_gameState == PLAYING && (button_pressed(BUTTON))) || (_gameState == SCREAM && listen() > MINAMP)) {
 		dino_jump_velocity += gravity;
 	} else {
 		dino_jump_velocity += gravity + 3;
@@ -335,8 +358,6 @@ void gamePlayLoop() {
 	} else {
 		digitalWrite(LED, LOW);
 	}
-
-	
 }
 
 
@@ -358,17 +379,39 @@ void setup() {
   display.clearDisplay();
 }
 
-void gameLoop() {
+// calculates voice amplitude with sample audio 5ms
+int listen() {
+	unsigned long startMillis = millis(); // Start of sample window
+  unsigned int peakToPeak = 0;   // peak-to-peak level
+
+  unsigned int signalMax = 0;
+  unsigned int signalMin = 1024;
+	unsigned int sample;
+
+  // sample audio for 2 ms
+  while (millis() - startMillis < 5)
+  {
+    sample = analogRead(A1);
+    if (sample < 1024)  // toss out spurious readings
+    {
+      if (sample > signalMax)
+      {
+        signalMax = sample;  // save just the max levels
+      }
+      else if (sample < signalMin)
+      {
+        signalMin = sample;  // save just the min levels
+      }
+    }
+  }
+  peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
+  return peakToPeak;
 }
 
 void loop() {
 	// refresh display every loop
-	// draw score
-	
-	
 	if (_gameState == NEW_GAME || _gameState == GAME_OVER) {
 		// non gameplay loop
-		initEntities();
 		nonGameLoop();
 	} else {
 		// print score
@@ -382,11 +425,8 @@ void loop() {
 		// gameplay loop
 		gamePlayLoop();
 	}
-	//dino_y = dino_control;
-	
-	
 
-
+	// display
 	display.display();
 }
 
