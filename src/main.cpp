@@ -51,15 +51,33 @@ const unsigned char ptero_sprite [] PROGMEM = {
 	0xff, 0xe0, 0x00, 0xfe, 0x00
 };
 
+// 'dino-eyes-mouth-closed', 20x20px
+const unsigned char dino_eyes_mouth_closed [] PROGMEM = {
+	0x1f, 0xff, 0x80, 0x7f, 0xff, 0xf0, 0xe1, 0xff, 0xf0, 0xe1, 0xff, 0xf0, 0xe1, 0xff, 0xf0, 0xe1, 
+	0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 
+	0xf0, 0xff, 0xff, 0xf0, 0xff, 0x49, 0x20, 0xff, 0xfe, 0x00, 0xff, 0xfe, 0x00, 0xff, 0xfe, 0x00, 
+	0xff, 0xfe, 0x00, 0xff, 0xfe, 0x00, 0xff, 0xfe, 0x00, 0x00, 0x00, 0x00
+};
+// 'dino-eyes-mouth-open', 20x20px
+const unsigned char dino_eyes_mouth_open [] PROGMEM = {
+	0x1f, 0xff, 0x80, 0x7f, 0xff, 0xf0, 0xe1, 0xff, 0xf0, 0xed, 0xff, 0xf0, 0xed, 0xff, 0xf0, 0xe1, 
+	0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 0xf0, 0xff, 0xff, 
+	0xf0, 0xff, 0xff, 0xf0, 0xff, 0x49, 0x20, 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xfe, 0x00, 
+	0xff, 0xfe, 0x00, 0xff, 0xfe, 0x00, 0xff, 0xfe, 0x00, 0x01, 0xfe, 0x00
+};
+
 // Array of all bitmaps for convenience. (Total bytes used to store images in PROGMEM = 1040)
-const int epd_bitmap_allArray_LEN = 3;
-const unsigned char* epd_bitmap_allArray[3] = {
+const int epd_bitmap_allArray_LEN = 5;
+const unsigned char* epd_bitmap_allArray[5] = {
 	dino,
 	dino_fly,
-	ptero_sprite
+	ptero_sprite,
+	dino_eyes_mouth_open,
+	dino_eyes_mouth_closed
 };
 
 const int BUTTON = 4;
+const int LED = 8;
 
 
 const int SCORE_HEIGHT = 5;
@@ -83,7 +101,7 @@ int pterodactyl_height = 7;
 int pterodactyl_width = 20;
 int pterodactyl_speed = 1;
 
-int score = 0;
+
 
 // Dinosaurs constants
 const int DINO_WIDTH = 20;
@@ -98,6 +116,7 @@ int dino_speed = 6;
 const int DINO_GROUND = SCREEN_HEIGHT - DINO_HEIGHT;
 bool airborne = false;
 
+// States
 enum GameState {
 	NEW_GAME,
 	PLAYING,
@@ -111,6 +130,10 @@ GameState _gameState = NEW_GAME;
 int _gameOverTimeStamp = 0;
 uint16_t blinky = 1;
 unsigned long prev_millis = 0;
+unsigned long start_menu_millis = 0;
+
+int score = 0;
+int hi_score = 0;
 
 // helper function declaration
 bool button_pressed(int button);
@@ -179,18 +202,27 @@ void nonGameLoop() {
 
 	if (_gameState == NEW_GAME) {
 		display.getTextBounds(START_MENU_STR, 0, 0, &x1, &y1, &w, &h);
-		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2);
+		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2 - 10);
 		if (millis() - prev_millis > 500) {
 			prev_millis = millis();
-			if (blinky == 1) blinky = 0;
-			else blinky = 1;
+			if (blinky == 1) {
+				blinky = 0;
+				display.clearDisplay();
+				display.drawBitmap(SCREEN_WIDTH / 2 - 10, SCREEN_HEIGHT / 2 + h, epd_bitmap_allArray[3], 20, 20, 1);
+			}
+			else {
+				blinky = 1;
+				display.clearDisplay();
+				display.drawBitmap(SCREEN_WIDTH / 2 - 10, SCREEN_HEIGHT / 2 + h, epd_bitmap_allArray[4], 20, 20, 1);
+
+			};
 		}
 		display.setTextColor(blinky);
 		display.print(START_MENU_STR);
 		display.setTextColor(1);
 
 		// input delay to prevent accidentally pressing the button
-		if (button_pressed(BUTTON) &&  millis() - _gameOverTimeStamp > 500) {
+		if (button_pressed(BUTTON) &&  millis() - _gameOverTimeStamp > 600) {
 			_gameState = PLAYING;
 		}
 	} else if (_gameState == GAME_OVER) {
@@ -201,7 +233,7 @@ void nonGameLoop() {
 		display.setCursor(SCREEN_WIDTH / 2 - w / 2, SCREEN_HEIGHT / 2 + h - 10);
 		display.print("Press to continue");
 
-		if (button_pressed(BUTTON) && millis() - _gameOverTimeStamp > 500) {
+		if (button_pressed(BUTTON) && millis() - _gameOverTimeStamp > 600) {
 			_gameState = PLAYING;
 		}
 	}
@@ -242,6 +274,7 @@ void gamePlayLoop() {
 		if (is_colliding(dino_x, dino_y, DINO_X_HIT, DINO_Y_HIT,
 			cactuses[i].getX(), cactuses[i].getY(), 
 			cactuses[i].getWidth(), cactuses[i].getHeight())) {
+				hi_score = max(score, hi_score);
 				score = 0;
 				tone(7, 500, 200);
 				_gameState = GAME_OVER;
@@ -258,6 +291,7 @@ void gamePlayLoop() {
 	}
 	if (is_colliding(dino_x, dino_y, DINO_X_HIT, DINO_Y_HIT,
 					ptero.getX(), ptero.getY(), pterodactyl_width, pterodactyl_height)) {
+						hi_score = max(score, hi_score);
 						score = 0;
 						tone(7, 500, 200);
 						_gameState = GAME_OVER;
@@ -295,6 +329,13 @@ void gamePlayLoop() {
 	// draw ptero
 	ptero.drawPtero(display, ptero.getX(), ptero.getY());
 
+	// led activation
+	if (score > hi_score) {
+		digitalWrite(LED, HIGH);
+	} else {
+		digitalWrite(LED, LOW);
+	}
+
 	
 }
 
@@ -330,10 +371,14 @@ void loop() {
 		initEntities();
 		nonGameLoop();
 	} else {
+		// print score
 		display.clearDisplay();
 		display.setCursor(60, 0);
 		display.print("score: ");
 		display.print(score);
+		display.setCursor(0,0);
+		display.print("Hi: ");
+		display.print(hi_score);
 		// gameplay loop
 		gamePlayLoop();
 	}
