@@ -63,7 +63,7 @@ const unsigned char* epd_bitmap_allArray[5] = {
 
 const int BUTTON = 4;
 const int LED = 8;
-const int MINAMP = 100;
+const int MINAMP = 150;
 const int BUZZER = 9;
 
 const int SCORE_HEIGHT = 5;
