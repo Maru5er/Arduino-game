@@ -78,7 +78,7 @@ const unsigned char* epd_bitmap_allArray[5] = {
 
 const int BUTTON = 4;
 const int LED = 8;
-const int MINAMP = 200;
+const int MINAMP = 100;
 const int BUZZER = 9;
 
 const int SCORE_HEIGHT = 5;
@@ -381,34 +381,7 @@ void setup() {
 
 // calculates voice amplitude with sample audio 5ms
 int listen() {
-	/**
-	 * unsigned long startMillis = millis(); // Start of sample window
-  unsigned int peakToPeak = 0;   // peak-to-peak level
-
-  
-
-  // sample audio for 2 ms
-  while (millis() - startMillis < 5)
-  {
-    sample = analogRead(A1);
-    if (sample < 1024)  // toss out spurious readings
-    {
-      if (sample > signalMax)
-      {
-        signalMax = sample;  // save just the max levels
-      }
-      else if (sample < signalMin)
-      {
-        signalMin = sample;  // save just the min levels
-      }
-    }
-  }
-  peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
-	 * 
-	 * 
-	*/
 	int signalMax = 676;
-	int sample;
 	int soundlevel = analogRead(A1);
 	int amplitude = map(soundlevel, signalMax / 2, signalMax, 0, 676);
 	
