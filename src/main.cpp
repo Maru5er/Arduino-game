@@ -208,11 +208,13 @@ void nonGameLoop() {
 
 		
 		if (button_pressed(BUTTON)) {
+			initEntities();
 			_gameState = PLAYING;
 		}
 		
 		// screaming mode
 		if (listen() > MINAMP) {
+			initEntities();
 			_gameState = SCREAM;
 		}
 
